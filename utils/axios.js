@@ -5,7 +5,7 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || process.env.API_BASE_URL,
   withCredentials: true,
-  timeout: 10000,
+  timeout: 60000, // 60 seconds default timeout (increased for file uploads)
 });
 
 // Retry configuration for 429 errors

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Check, X, Eye, Edit } from 'lucide-react';
+import { Check, X, Eye, Edit, Loader2 } from 'lucide-react';
 import api from '@/utils/axios'; // Make sure this path is correct
 
 const currencyPairs = [
@@ -26,6 +26,7 @@ const currencyPairs = [
 const TradesOrderHistory = () => {
   const [loading, setLoading] = useState(false);
   const [usersLoading, setUsersLoading] = useState(true);
+  const [savingTrade, setSavingTrade] = useState(false);
   const [users, setUsers] = useState([]);
   const [tradingHistory, setTradingHistory] = useState([]);
   const [selectedUser, setSelectedUser] = useState('');
@@ -121,7 +122,11 @@ const TradesOrderHistory = () => {
   };
 
   const handleBuyTrade = async () => {
+    // Prevent multiple clicks
+    if (savingTrade) return;
+    
     try {
+      setSavingTrade(true);
       const tradePayload = {
         userId: selectedUser,
         symbol: tradeData.symbol,
@@ -156,6 +161,8 @@ const TradesOrderHistory = () => {
     } catch (error) {
       console.error('Error creating trade:', error);
       addToast('error', 'Failed to create trade');
+    } finally {
+      setSavingTrade(false);
     }
   };
 
@@ -519,10 +526,17 @@ const TradesOrderHistory = () => {
             <Button
               type="submit"
               onClick={handleBuyTrade}
-              disabled={!tradeData.symbol || !tradeData.quantity || !tradeData.buyPrice}
+              disabled={!tradeData.symbol || !tradeData.quantity || !tradeData.buyPrice || savingTrade}
               className="transition-all duration-200 ease-in-out hover:scale-[1.02]"
             >
-              Buy
+              {savingTrade ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Buy'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

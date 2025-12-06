@@ -119,6 +119,12 @@ const KycRegistration = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Prevent multiple submissions
+    if (isSubmitting) {
+      return;
+    }
+    
     if (validateStep(3)) {
       setIsSubmitting(true);
       try {
@@ -156,7 +162,7 @@ const KycRegistration = () => {
           headers: {
             'Content-Type': 'multipart/form-data'
           },
-          timeout: 30000 // 30 seconds timeout for file uploads
+          timeout: 120000 // 120 seconds (2 minutes) timeout for file uploads on slow networks
         });
         
         console.log("Registration Response:", response.data);
@@ -173,13 +179,25 @@ const KycRegistration = () => {
         
         // Handle timeout errors specifically
         if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-          alert('Request timed out. This might be due to slow network or large file uploads. Please check your internet connection and try again with smaller images if possible.');
+          // Check if user might have been created despite timeout
+          const errorMessage = error.response?.data?.message || 
+                              'Request timed out. Your registration may have been processed. Please check your email or try logging in. If the issue persists, contact support.';
+          alert(errorMessage);
+          setIsSubmitting(false);
           return;
         }
         
         // Handle network errors
         if (error.code === 'ERR_NETWORK' || !error.response) {
-          alert('Network error. Please check your internet connection and try again.');
+          alert('Network error. Please check your internet connection and try again. If you already submitted, please check your email or try logging in.');
+          setIsSubmitting(false);
+          return;
+        }
+        
+        // Handle duplicate user error
+        if (error.response?.status === 400 && error.response?.data?.message?.includes('already exists')) {
+          alert(error.response.data.message + '\n\nIf you already registered, please check your email or try logging in.');
+          setIsSubmitting(false);
           return;
         }
         
