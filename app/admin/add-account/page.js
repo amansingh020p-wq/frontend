@@ -31,11 +31,9 @@ const AddAccount = () => {
   const [loadingSetting, setLoadingSetting] = useState(true);
 
   useEffect(() => {
-    // Fetch bank details visibility setting
     const fetchBankDetailsSetting = async () => {
       try {
         const response = await api.get('/admin/get-bank-details-visibility');
-        // Handle ApiResponse format (statusCode, success, data)
         if (response.data.success === true || response.data.statusCode === 200) {
           setShowBankDetails(response.data.data?.showBankDetails ?? true);
         }
@@ -46,41 +44,31 @@ const AddAccount = () => {
       }
     };
 
-    // Simulate API fetch
-    const fetchData = async () => {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const mockAccounts = [
-        {
-          id: 1,
-          upiId: 'developer.aditya09@oksbi',
-          businessName: 'Aditya Patel',
-          bankName: 'State Bank Of India',
-          accountNumber: '98656565323',
-          ifscCode: 'SBIN8965432',
-          accountName: 'Aditya Patel',
-          isActive: true,
-          createdAt: '2023-05-15'
-        },
-        {
-          id: 2,
-          upiId: 'business.old@oksbi',
-          businessName: 'Old Business',
-          bankName: 'HDFC Bank',
-          accountNumber: '1234567890',
-          ifscCode: 'HDFC0001234',
-          accountName: 'Old Business',
-          isActive: false,
-          createdAt: '2023-01-10'
-        }
-      ];
-      
-      setAccounts(mockAccounts);
-      setActiveAccount(mockAccounts.find(acc => acc.isActive) || null);
-      setLoading(false);
+    const fetchUpis = async () => {
+      try {
+        const res = await api.get('/admin/get-all-upi');
+        const list = res.data?.data || [];
+        const normalized = list.map((item) => ({
+          id: item._id,
+          upiId: item.upiId,
+          businessName: item.bussinessname,
+          bankName: item.bankName || 'N/A',
+          accountNumber: item.accountNumber || 'N/A',
+          ifscCode: item.ifscCode || 'N/A',
+          accountName: item.accountName || item.bussinessname,
+          isActive: !!item.isActive,
+          createdAt: item.createdAt,
+        }));
+        setAccounts(normalized);
+        setActiveAccount(normalized.find((acc) => acc.isActive) || null);
+      } catch (error) {
+        console.error('Failed to load UPI accounts:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
-    fetchData();
+    fetchUpis();
     fetchBankDetailsSetting();
   }, []);
 
@@ -120,26 +108,46 @@ const AddAccount = () => {
     setIsFormDirty(true);
   };
 
-  const handleAddAccount = () => {
-    if (!formData.upiId || !formData.bankName) return;
-    
-    const newAccount = {
-      id: accounts.length + 1,
-      ...formData,
-      isActive: false,
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    
-    setAccounts(prev => [...prev, newAccount]);
-    setFormData({
-      upiId: '',
-      businessName: '',
-      bankName: '',
-      accountNumber: '',
-      ifscCode: '',
-      accountName: ''
-    });
-    setIsFormDirty(false);
+  const handleAddAccount = async () => {
+    if (!formData.upiId || !formData.businessName) return;
+    try {
+      const res = await api.post('/admin/add-upi', {
+        id: formData.upiId,
+        name: formData.businessName,
+        bankName: formData.bankName,
+        accountNumber: formData.accountNumber,
+        ifscCode: formData.ifscCode,
+        accountName: formData.accountName,
+        isActive: false,
+      });
+      const created = res.data?.data;
+      if (created) {
+        const newAccount = {
+          id: created._id,
+          upiId: created.upiId,
+          businessName: created.bussinessname,
+          bankName: created.bankName || formData.bankName,
+          accountNumber: created.accountNumber || formData.accountNumber,
+          ifscCode: created.ifscCode || formData.ifscCode,
+          accountName: created.accountName || formData.accountName,
+          isActive: created.isActive,
+          createdAt: created.createdAt,
+        };
+        setAccounts((prev) => [...prev, newAccount]);
+      }
+      setFormData({
+        upiId: '',
+        businessName: '',
+        bankName: '',
+        accountNumber: '',
+        ifscCode: '',
+        accountName: ''
+      });
+      setIsFormDirty(false);
+    } catch (error) {
+      console.error('Failed to add UPI:', error);
+      alert(error.response?.data?.message || 'Failed to add UPI');
+    }
   };
 
   const handleEditAccount = (account) => {
@@ -147,32 +155,80 @@ const AddAccount = () => {
     setEditDialogOpen(true);
   };
 
-  const handleSaveEdit = () => {
-    setAccounts(prev => 
-      prev.map(acc => 
-        acc.id === accountToEdit.id ? { ...accountToEdit } : acc
-      )
-    );
+  const handleSaveEdit = async () => {
+    if (!accountToEdit) return;
     
-    if (activeAccount?.id === accountToEdit.id) {
-      setActiveAccount(accountToEdit);
+    try {
+      const res = await api.put(`/admin/update-upi/${accountToEdit.id}`, {
+        id: accountToEdit.upiId,
+        name: accountToEdit.businessName,
+        bankName: accountToEdit.bankName,
+        accountNumber: accountToEdit.accountNumber,
+        ifscCode: accountToEdit.ifscCode,
+        accountName: accountToEdit.accountName,
+        isActive: accountToEdit.isActive,
+      });
+      
+      const updated = res.data?.data;
+      if (updated) {
+        setAccounts(prev => 
+          prev.map(acc => 
+            acc.id === accountToEdit.id ? {
+              ...acc,
+              upiId: updated.upiId,
+              businessName: updated.bussinessname,
+              bankName: updated.bankName || accountToEdit.bankName,
+              accountNumber: updated.accountNumber || accountToEdit.accountNumber,
+              ifscCode: updated.ifscCode || accountToEdit.ifscCode,
+              accountName: updated.accountName || accountToEdit.accountName,
+              isActive: updated.isActive,
+            } : acc
+          )
+        );
+        
+        if (activeAccount?.id === accountToEdit.id) {
+          const updatedAccount = accounts.find(acc => acc.id === accountToEdit.id);
+          if (updatedAccount) {
+            setActiveAccount({
+              ...updatedAccount,
+              upiId: updated.upiId,
+              businessName: updated.bussinessname,
+              bankName: updated.bankName || accountToEdit.bankName,
+              accountNumber: updated.accountNumber || accountToEdit.accountNumber,
+              ifscCode: updated.ifscCode || accountToEdit.ifscCode,
+              accountName: updated.accountName || accountToEdit.accountName,
+              isActive: updated.isActive,
+            });
+          }
+        }
+      }
+      
+      setEditDialogOpen(false);
+      setAccountToEdit(null);
+    } catch (error) {
+      console.error('Failed to update UPI:', error);
+      alert(error.response?.data?.message || 'Failed to update UPI');
     }
-    
-    setEditDialogOpen(false);
-    setAccountToEdit(null);
   };
 
-  const handleActivateAccount = (accountId) => {
-    setAccounts(prev => 
-      prev.map(acc => ({
-        ...acc,
-        isActive: acc.id === accountId
-      }))
-    );
-    setActiveAccount(accounts.find(acc => acc.id === accountId));
+  const handleActivateAccount = async (accountId) => {
+    try {
+      await api.post(`/admin/activate-upi/${accountId}`);
+      setAccounts(prev => 
+        prev.map(acc => ({
+          ...acc,
+          isActive: acc.id === accountId
+        }))
+      );
+      setActiveAccount(prev => (prev?.id === accountId ? prev : accounts.find(acc => acc.id === accountId) || null));
+    } catch (error) {
+      console.error('Failed to activate UPI:', error);
+      alert(error.response?.data?.message || 'Failed to activate UPI');
+    }
   };
 
-  const handleDeactivateAccount = () => {
+  const handleDeactivateAccount = async () => {
+    // No explicit deactivate API; mark local state
     setAccounts(prev => 
       prev.map(acc => ({
         ...acc,

@@ -30,11 +30,57 @@ const UserDepositPage = () => {
   const [loading, setLoading] = useState(true);
   const [userDepositHistory, setUserDepositHistory] = useState([]);
   const [bankDetailsVisible, setBankDetailsVisible] = useState(false); // Default to false (hide bank details)
+  const [upiDetails, setUpiDetails] = useState({ upiId: "", businessName: "" });
+  const [upiLoading, setUpiLoading] = useState(true);
+  const [bankDetails, setBankDetails] = useState({
+    bankName: "",
+    accountNumber: "",
+    ifscCode: "",
+    accountName: "",
+  });
   
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // Fetch active UPI configured by admin (includes bank details)
+        try {
+          const upiRes = await fetch.get('/user/active-upi');
+          if (upiRes.data?.success && upiRes.data?.data) {
+            const data = upiRes.data.data;
+            setUpiDetails({
+              upiId: data.upiId,
+              businessName: data.businessName,
+            });
+            // Set bank details from active UPI account
+            setBankDetails({
+              bankName: data.bankName || "",
+              accountNumber: data.accountNumber || "",
+              ifscCode: data.ifscCode || "",
+              accountName: data.accountName || "",
+            });
+          } else {
+            setUpiDetails({ upiId: "", businessName: "" });
+            setBankDetails({
+              bankName: "",
+              accountNumber: "",
+              ifscCode: "",
+              accountName: "",
+            });
+          }
+        } catch (error) {
+          console.error("Failed to fetch active UPI details:", error);
+          setUpiDetails({ upiId: "", businessName: "" });
+          setBankDetails({
+            bankName: "",
+            accountNumber: "",
+            ifscCode: "",
+            accountName: "",
+          });
+        } finally {
+          setUpiLoading(false);
+        }
+
         // Fetch bank details visibility setting
         try {
           const visibilityRes = await fetch.get('/user/bank-details-visibility');
@@ -78,12 +124,16 @@ const UserDepositPage = () => {
       alert('Please enter a valid amount');
       return;
     }
+    if (!upiDetails.upiId) {
+      alert('Payment is unavailable right now. Please try again later.');
+      return;
+    }
 
     setIsLoading(true);
     setQrCodeUrl('');
 
-    const upiId = "developer.aditya09@oksbi";
-    const businessName = "Aditya Patel";
+    const upiId = upiDetails.upiId;
+    const businessName = upiDetails.businessName || "Merchant";
     const upiLinkData = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(businessName)}&am=${amount}&cu=INR&mc=0000&tn=Payment+for+order`;
 
     setUpiLink(upiLinkData);
@@ -107,10 +157,15 @@ const UserDepositPage = () => {
   try {
     // const token = localStorage.getItem('token'); // Or get it from auth context
 
+    if (!upiDetails.upiId) {
+      alert('Payment is unavailable right now. Please try again later.');
+      return;
+    }
+
     const res = await fetch.post('/user/deposit', {
       amount,
       paymentMethod: "UPI", // or "bank" based on selected method
-      upiId: "developer.aditya09@oksbi", // Only if UPI
+      upiId: upiDetails.upiId, // Only if UPI
     });
     console.log("Deposit response:", res.data);
 
@@ -217,7 +272,7 @@ const UserDepositPage = () => {
                   <Button 
                     className="w-full" 
                     onClick={generateQR}
-                    disabled={!amount || isLoading}
+                    disabled={!amount || isLoading || upiLoading || !upiDetails.upiId}
                   >
                     {isLoading ? (
                       <>
@@ -262,11 +317,15 @@ const UserDepositPage = () => {
                       <div className="w-full space-y-2 text-sm dark:text-[#ABBAB6]">
                         <div className="flex justify-center gap-2">
                           <span>UPI ID :</span>
-                          <span className="font-medium dark:text-[#F2F2F2]">developer.aditya09@oksbi</span>
+                          <span className="font-medium dark:text-[#F2F2F2]">
+                            {upiDetails.upiId || 'Not available'}
+                          </span>
                         </div>
                         <div className="flex justify-center gap-2">
                           <span>Business Name:</span>
-                          <span className="font-medium dark:text-[#F2F2F2]">Aditya Patel</span>
+                          <span className="font-medium dark:text-[#F2F2F2]">
+                            {upiDetails.businessName || 'Not available'}
+                          </span>
                         </div>
                         <div className="flex justify-center gap-2">
                           <span>Amount:</span>
@@ -333,19 +392,19 @@ const UserDepositPage = () => {
                       <div className="space-y-1 text-sm dark:text-[#ABBAB6]">
                         <div className="flex justify-left gap-2">
                           <span>Bank Name :</span>
-                          <span className="font-medium dark:text-[#F2F2F2]">State Bank Of India</span>
+                          <span className="font-medium dark:text-[#F2F2F2]">{bankDetails.bankName || 'Not available'}</span>
                         </div>
                         <div className="flex justify-left gap-2">
                           <span>Account Number:</span>
-                          <span className="font-medium dark:text-[#F2F2F2]">98656565323</span>
+                          <span className="font-medium dark:text-[#F2F2F2]">{bankDetails.accountNumber || 'Not available'}</span>
                         </div>
                         <div className="flex justify-left gap-2">
                           <span>IFSC Code:</span>
-                          <span className="font-medium dark:text-[#F2F2F2]">SBIN8965432</span>
+                          <span className="font-medium dark:text-[#F2F2F2]">{bankDetails.ifscCode || 'Not available'}</span>
                         </div>
                         <div className="flex justify-left gap-2">
                           <span>Account Name:</span>
-                          <span className="font-medium dark:text-[#F2F2F2]">Aditya Patel</span>
+                          <span className="font-medium dark:text-[#F2F2F2]">{bankDetails.accountName || 'Not available'}</span>
                         </div>
                       </div>
                       <p className="text-sm mt-2 dark:text-[#ABBAB6]">
