@@ -5,7 +5,7 @@ import { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, X } from 'lucide-react';
+import { Eye, EyeOff, X, Loader2 } from 'lucide-react';
 import axios from "utils/axios.js"
 
 
@@ -23,11 +23,13 @@ const Login = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [step, setStep] = useState(1); // 1: email, 2: otp, 3: new password, 4: success
   const [otpError, setOtpError] = useState('');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true); // Start loading animation
 
     // Hardcoded credentials
     // const correctUsername = 'admin@aditya';
@@ -58,6 +60,7 @@ const Login = () => {
         const isVerified = response.data?.data?.isVerified;
         if (isVerified === false) {
           setError('Your account is not verified yet.');
+          setLoading(false);
           return;
         }
         if (role === 'admin') {
@@ -70,10 +73,12 @@ const Login = () => {
         // as axios throws an error in that case, which is caught by the catch block.
         // However, it's good practice to handle it in case the server sends 2xx with a fail status.
         setError(response.data.message || 'Login failed');
+        setLoading(false);
       }
     } catch (err) {
       console.error('Login error:', err);
       setError(err.response?.data?.message || 'Login failed. Please try again.');
+      setLoading(false);
     }
   };
 
@@ -149,7 +154,7 @@ const Login = () => {
           <p className="text-[#D0E2D2] text-sm md:text-base mb-6 md:mb-8">
             Access your trading dashboard and manage your forex portfolio with our secure platform.
           </p>
-          <Link href="/about" className="bg-[#43B852] hover:bg-[#0E1F1B] text-white py-2 px-4 md:py-2 md:px-6 rounded-full w-fit text-xs md:text-sm font-medium transition-colors border border-[#43B852]">
+          <Link href="/about-us" className="bg-[#43B852] hover:bg-[#0E1F1B] text-white py-2 px-4 md:py-2 md:px-6 rounded-full w-fit text-xs md:text-sm font-medium transition-colors border border-[#43B852]">
             Learn More
           </Link>
         </div>
@@ -207,9 +212,17 @@ const Login = () => {
 
               <button
                 type="submit"
-                className="w-full bg-[#43B852] hover:bg-[#0E1F1B] text-white py-2 md:py-3 rounded-lg font-medium transition-colors text-sm md:text-base"
+                disabled={loading}
+                className="w-full bg-[#43B852] hover:bg-[#0E1F1B] text-white py-2 md:py-3 rounded-lg font-medium transition-colors text-sm md:text-base disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                Sign In
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 md:h-5 md:w-5 animate-spin" />
+                    <span>Signing In...</span>
+                  </>
+                ) : (
+                  'Sign In'
+                )}
               </button>
             </form>
 

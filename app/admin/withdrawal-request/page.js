@@ -11,6 +11,7 @@ import { Check, X, Eye } from 'lucide-react';
 import UserDetailsPopup from '@/components/UserDetailsPopup';
 import api from '@/utils/axios';
 import { formatError, isRateLimit } from '@/utils/errorHandler';
+import { formatAmountInUSD } from '@/utils/currency';
 
 const WithdrawRequest = () => {
   const [loading, setLoading] = useState(true);
@@ -62,7 +63,7 @@ const WithdrawRequest = () => {
               id: w._id,
               userId: userId, // Store userId for fetching details
               name: w.userId?.name || 'Unknown',
-              amount: `$${w.amount}`,
+              amount: formatAmountInUSD(w.amount), // Convert INR to USD for display
               bank: w.bank || '-',
               status: w.status?.toLowerCase() || 'pending',
               user: w.userId?.name || 'Unknown',

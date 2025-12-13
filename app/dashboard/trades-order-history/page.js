@@ -463,24 +463,50 @@ const TradesOrderHistory = () => {
         )}
       </div>
       
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+      {/* Summary Cards - Desktop: Show all 3, Mobile: Show only Net Profit/Loss */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
         {loading ? (
-          Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="rounded-lg border dark:border-[#2A3F3A] p-3 sm:p-4 bg-card shadow-sm">
+          <>
+            {/* Mobile: Only show Net Profit/Loss skeleton */}
+            <div className="md:hidden rounded-lg border dark:border-[#2A3F3A] p-3 sm:p-4 bg-card shadow-sm">
               <Skeleton className="h-4 w-3/4 mb-2" />
               <Skeleton className="h-6 w-full mt-1" />
               <Skeleton className="h-3 w-full mt-2" />
             </div>
-          ))
+            {/* Desktop: Show all 3 skeletons */}
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="hidden md:block rounded-lg border dark:border-[#2A3F3A] p-3 sm:p-4 bg-card shadow-sm">
+                <Skeleton className="h-4 w-3/4 mb-2" />
+                <Skeleton className="h-6 w-full mt-1" />
+                <Skeleton className="h-3 w-full mt-2" />
+              </div>
+            ))}
+          </>
         ) : (
-          summaryData.map((item, index) => (
-            <div key={index} className="rounded-lg border dark:border-[#2A3F3A] p-3 sm:p-4 bg-card shadow-sm">
-              <h3 className="text-xs sm:text-sm font-medium text-muted-foreground dark:text-[#ABBAB6]">{item.title}</h3>
-              <p className="text-lg sm:text-xl md:text-2xl font-bold mt-1 dark:text-[#F2F2F2]">{item.value}</p>
-              <p className="text-xs text-muted-foreground mt-1">{item.change}</p>
-            </div>
-          ))
+          summaryData.map((item, index) => {
+            // On mobile, only show "Net Profit/Loss"
+            const isNetProfitLoss = item.title === 'Net Profit/Loss';
+            const isProfit = item.value && (item.value.startsWith('+') || parseFloat(item.value.replace(/[^0-9.-]/g, '')) > 0);
+            
+            return (
+              <div 
+                key={index} 
+                className={`rounded-lg border dark:border-[#2A3F3A] p-3 sm:p-4 bg-card shadow-sm ${
+                  !isNetProfitLoss ? 'hidden md:block' : ''
+                }`}
+              >
+                <h3 className="text-xs sm:text-sm font-medium text-muted-foreground dark:text-[#ABBAB6]">{item.title}</h3>
+                <p className={`text-lg sm:text-xl md:text-2xl font-bold mt-1 ${
+                  isNetProfitLoss 
+                    ? (isProfit ? 'text-green-500 dark:text-green-400' : 'text-red-500 dark:text-red-400')
+                    : 'dark:text-[#F2F2F2]'
+                }`}>
+                  {item.value}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">{item.change}</p>
+              </div>
+            );
+          })
         )}
       </div>
 
@@ -533,12 +559,123 @@ const TradesOrderHistory = () => {
           </div>
         </div>
 
-        {/* Table or Empty State */}
+        {/* Mobile Card View - Only visible on mobile */}
         {!loading && tradingHistory.length === 0 ? (
           <EmptyState filter={activeFilter} />
         ) : (
-          <div className="p-2 sm:p-4 overflow-x-auto">
-            <table className="w-full min-w-[700px]">
+          <>
+            {/* Mobile Card Layout */}
+            <div className="block md:hidden p-4 space-y-3">
+              {loading ? (
+                Array.from({ length: 3 }).map((_, index) => (
+                  <div key={index} className="rounded-lg border dark:border-[#2A3F3A] p-4 bg-card shadow-sm">
+                    <Skeleton className="h-4 w-3/4 mb-2" />
+                    <Skeleton className="h-4 w-1/2 mb-2" />
+                    <Skeleton className="h-4 w-1/3 mb-2" />
+                    <Skeleton className="h-6 w-1/4 mt-2" />
+                  </div>
+                ))
+              ) : (
+                tradingHistory.map((trade) => {
+                  const isOpen = trade.status === 'open';
+                  
+                  // Initialize default values for P&L
+                  let displayValue = trade.profitLoss;
+                  let isProfit = false;
+                  let isLoss = false;
+                  let shouldShowPriceComparison = false;
+
+                  // For open trades, calculate fluctuating P&L
+                  if (isOpen) {
+                    const quantity = Number(trade.quantity) || 0;
+                    const buyPricePerUnit = Number(trade.buyPrice) || 0;
+                    const totalBuyAmount = quantity * buyPricePerUnit;
+                    const midValue = totalBuyAmount;
+
+                    if (midValue != null && midValue !== undefined) {
+                      const midTotalValue = Number(midValue);
+                      
+                      if (!isNaN(midTotalValue) && isFinite(midTotalValue)) {
+                        let currentTotalValue = null;
+                        
+                        if (trade.id in livePrices && livePrices[trade.id] != null && livePrices[trade.id] !== undefined) {
+                          currentTotalValue = Number(livePrices[trade.id]);
+                        } else if (trade.currentPrice != null && trade.currentPrice !== undefined) {
+                          currentTotalValue = Number(trade.currentPrice);
+                        } else {
+                          currentTotalValue = midTotalValue;
+                        }
+                        
+                        if (currentTotalValue != null && !isNaN(currentTotalValue) && isFinite(currentTotalValue)) {
+                          shouldShowPriceComparison = true;
+                          const profitLossAmount = currentTotalValue - midTotalValue;
+                          
+                          if (profitLossAmount < 0) {
+                            isLoss = true;
+                            displayValue = `-$${Math.abs(profitLossAmount).toFixed(2)}`;
+                          } else if (profitLossAmount > 0) {
+                            isProfit = true;
+                            displayValue = `+$${profitLossAmount.toFixed(2)}`;
+                          } else {
+                            displayValue = `$${profitLossAmount.toFixed(2)}`;
+                          }
+                        }
+                      }
+                    }
+                  }
+
+                  // Format status
+                  const statusText = trade.status === 'open' ? 'Open' : trade.status === 'closed' ? 'Close' : trade.status.charAt(0).toUpperCase() + trade.status.slice(1);
+                  
+                  // Format type
+                  const typeText = trade.type === 'long' ? 'Long' : trade.type === 'short' ? 'Short' : trade.type.charAt(0).toUpperCase() + trade.type.slice(1);
+
+                  return (
+                    <div key={trade.id} className="rounded-lg border dark:border-[#2A3F3A] p-4 bg-card shadow-sm">
+                      {/* First line: Qty and Type (like "Qty. 150 Avg. 355.44" but Type instead of Avg) */}
+                      <div className="mb-2">
+                        <span className="text-sm text-muted-foreground dark:text-[#ABBAB6]">
+                          Qty. {trade.quantity} {typeText}
+                        </span>
+                      </div>
+                      
+                      {/* Second line: Symbol (like "BANK NIFTY JAN 49500 CE") */}
+                      <div className="mb-2">
+                        <span className="text-base font-medium dark:text-[#F2F2F2]">{trade.symbol}</span>
+                      </div>
+                      
+                      {/* Third line: Status (like "NRML") */}
+                      <div className="mb-3">
+                        <span className="text-sm text-muted-foreground dark:text-[#ABBAB6]">{statusText}</span>
+                      </div>
+                      
+                      {/* Fourth line: P&L (fluctuating for open trades, like "+65,500.00") */}
+                      <div className="flex items-center justify-end">
+                        <span className={`text-lg font-semibold ${
+                          shouldShowPriceComparison
+                            ? (isLoss 
+                                ? 'text-red-500 dark:text-red-400' 
+                                : isProfit 
+                                  ? 'text-green-500 dark:text-green-400' 
+                                  : 'text-gray-500 dark:text-gray-400')
+                            : (trade.profitLoss && trade.profitLoss.startsWith('+') 
+                                ? 'text-green-500 dark:text-green-400' 
+                                : trade.profitLoss && trade.profitLoss.startsWith('-') 
+                                  ? 'text-red-500 dark:text-red-400' 
+                                  : 'text-gray-500 dark:text-gray-400')
+                        }`}>
+                          {shouldShowPriceComparison ? displayValue : trade.profitLoss}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Desktop Table View - Only visible on desktop */}
+            <div className="hidden md:block p-2 sm:p-4 overflow-x-auto">
+              <table className="w-full min-w-[700px]">
               <thead>
                 <tr className="border-b dark:border-[#2A3F3A]">
                   <th className="px-2 py-1 sm:px-4 sm:py-2 text-left text-xs sm:text-sm font-medium text-muted-foreground dark:text-[#ABBAB6] whitespace-nowrap">Date</th>
@@ -733,8 +870,9 @@ const TradesOrderHistory = () => {
                   })
                 )}
               </tbody>
-            </table>
-          </div>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>

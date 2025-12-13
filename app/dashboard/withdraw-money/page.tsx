@@ -6,6 +6,7 @@ import StatCard from '../../../components/ui/StatCard';
 import StatusBadge, { StatusType } from '../../../components/ui/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import api from '@/utils/axios';
+import { formatAmountInUSD, getAmountInUSD, convertUSDToINR } from '@/utils/currency';
 
 interface WithdrawalData {
   accountBalance: number;
@@ -71,15 +72,18 @@ const WithdrawPage: React.FC = () => {
         const withdrawalsRes = await api.get('/user/withdraw-history');
         const withdrawals = withdrawalsRes.data.data.withdrawals || [];
         
-        // Calculate totals
-        const totalDeposit = deposits
+        // Calculate totals - amounts from backend are in INR, convert to USD
+        const totalDepositINR = deposits
           .filter((d: any) => d.status.toLowerCase() === 'completed')
           .reduce((sum: number, d: any) => sum + Number(d.amount || 0), 0);
         
-        const totalWithdrawals = withdrawals
+        const totalWithdrawalsINR = withdrawals
           .filter((w: any) => w.status.toLowerCase() === 'completed')
           .reduce((sum: number, w: any) => sum + Number(w.amount || 0), 0);
         
+        // Convert to USD for display
+        const totalDeposit = getAmountInUSD(totalDepositINR);
+        const totalWithdrawals = getAmountInUSD(totalWithdrawalsINR);
         const accountBalance = totalDeposit - totalWithdrawals;
         
         console.log('💰 Calculated from transactions:', {
@@ -199,7 +203,7 @@ const WithdrawPage: React.FC = () => {
             month: '2-digit',
             year: 'numeric'
           }),
-          amount: `$${Number(withdrawal.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          amount: formatAmountInUSD(withdrawal.amount), // Convert INR to USD for display
           bank: withdrawal.paymentMethod === 'UPI' ? 'UPI Transfer' : 'Bank Transfer',
           status: withdrawal.status.toLowerCase()
         }));
@@ -242,8 +246,12 @@ const WithdrawPage: React.FC = () => {
     setIsSubmitting(true);
     
     try {
+      // User enters amount in USD, convert to INR for backend
+      const amountUSD = parseFloat(amount);
+      const amountINR = convertUSDToINR(amountUSD);
+      
       const response = await api.post('/user/withdraw', {
-        amount: parseFloat(amount),
+        amount: amountINR, // Send INR amount to backend
         paymentMethod: 'BANK',
       });
 

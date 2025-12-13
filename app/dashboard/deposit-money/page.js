@@ -17,6 +17,7 @@ import {
   DialogTitle,
 } from "../../../components/ui/dialog";
 import { Skeleton } from '@/components/ui/skeleton';
+import { formatAmountInUSD } from '@/utils/currency';
 
 const UserDepositPage = () => {
   const [activeTab, setActiveTab] = useState("deposit");
@@ -102,7 +103,7 @@ const UserDepositPage = () => {
 
         const formattedDeposits = deposits.map((deposit) => ({
           id: deposit.transactionId,
-          amount: `₹${deposit.amount.toLocaleString('en-IN')}`,
+          amount: formatAmountInUSD(deposit.amount), // Convert INR to USD for display
           date: new Date(deposit.timestamp).toLocaleDateString('en-GB'),
           method: deposit.paymentMethod === 'UPI' ? 'UPI' : 'Bank Transfer',
           status: deposit.status.toLowerCase(), // lowercase to match `StatusBadge` component props
@@ -207,7 +208,7 @@ const UserDepositPage = () => {
             <div className="p-6 space-y-6">
               <div className="space-y-2">
                 <label className="block text-sm font-medium dark:text-[#F2F2F2]" htmlFor="amount">
-                  Amount ($)
+                  Amount (INR)
                 </label>
                 {loading ? (
                   <Skeleton className="h-10 w-full rounded-md" />

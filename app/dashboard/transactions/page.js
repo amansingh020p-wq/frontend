@@ -7,6 +7,7 @@ import StatusBadge from '../../../components/ui/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import fetch from "@/utils/axios";
 import { formatError, isRateLimit } from "@/utils/errorHandler";
+import { getAmountInUSD } from "@/utils/currency";
 
 
 const TransactionsPage = () => {
@@ -29,9 +30,11 @@ const TransactionsPage = () => {
           let withdrawTotal = 0;
 
           transactions.forEach(tx => {
-            const amt = parseFloat(String(tx.amount).replace(/[^0-9.-]+/g, ""));
-            if (tx.type === 'deposit') depositTotal += amt;
-            else if (tx.type === 'withdraw') withdrawTotal += amt;
+            // Amount from backend is in INR, convert to USD
+            const amtINR = parseFloat(String(tx.amount).replace(/[^0-9.-]+/g, ""));
+            const amtUSD = getAmountInUSD(amtINR);
+            if (tx.type === 'deposit') depositTotal += amtUSD;
+            else if (tx.type === 'withdraw') withdrawTotal += amtUSD;
           });
 
           const net = depositTotal - withdrawTotal;

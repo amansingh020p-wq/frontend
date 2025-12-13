@@ -110,7 +110,7 @@ const AdminSidebar = ({ mobileSidebarOpen, onCloseMobileSidebar }) => {
       <div className="flex items-center justify-between p-4 h-16 border-b border-border">
         {(!collapsed || isMobile) && (
           <div className="font-bold text-xl text-foreground">
-            User<span className="text-primary">Panel</span>
+            ForexFlow
           </div>
         )}
         <button 

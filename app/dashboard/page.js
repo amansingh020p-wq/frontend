@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import api from '@/utils/axios';
 import { formatError } from '@/utils/errorHandler';
+import { getAmountInUSD, formatAmountInUSD } from '@/utils/currency';
 
 const UserDashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
@@ -67,13 +68,19 @@ const UserDashboard = () => {
         // Handle dashboard data
         const rawData = dashboardRes.data || {};
 
-        // Normalize numeric values from backend (fallback to 0)
-        const totalDeposit = Number(rawData.totalDeposit || 0);
-        const totalWithdrawals = Number(rawData.totalWithdrawals || 0);
-        const orderInvestment = Number(rawData.orderInvestment || 0); // amount currently in open trades
-        const profitLoss = Number(rawData.profitLoss || 0); // realized P&L from closed trades
+        // Normalize numeric values from backend (fallback to 0) - these are in INR
+        const totalDepositINR = Number(rawData.totalDeposit || 0);
+        const totalWithdrawalsINR = Number(rawData.totalWithdrawals || 0);
+        const orderInvestmentINR = Number(rawData.orderInvestment || 0); // amount currently in open trades
+        const profitLossINR = Number(rawData.profitLoss || 0); // realized P&L from closed trades
 
-        // Base balance is simply deposits - withdrawals
+        // Convert to USD for display (90 INR = 1 USD)
+        const totalDeposit = getAmountInUSD(totalDepositINR);
+        const totalWithdrawals = getAmountInUSD(totalWithdrawalsINR);
+        const orderInvestment = getAmountInUSD(orderInvestmentINR);
+        const profitLoss = getAmountInUSD(profitLossINR);
+
+        // Base balance is simply deposits - withdrawals (in USD)
         const baseBalance = totalDeposit - totalWithdrawals;
 
         /**

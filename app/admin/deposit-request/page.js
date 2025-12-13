@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Check, X, Eye } from 'lucide-react';
 import UserDetailsPopup from '@/components/UserDetailsPopup';
 import api from '@/utils/axios'; // Your axios instance
+import { formatAmountInUSD } from '@/utils/currency';
 
 const DepositeRequest = () => {
   const [loading, setLoading] = useState(true);
@@ -115,12 +116,10 @@ const DepositeRequest = () => {
     });
   };
 
-  // Format amount for display
+  // Format amount for display - Convert INR to USD (90 INR = 1 USD)
   const formatAmount = (amount, currency = 'INR') => {
-    if (currency === 'INR') {
-      return `₹${amount.toLocaleString('en-IN')}`;
-    }
-    return `$${amount.toLocaleString('en-US')}`;
+    // Always convert to USD for display
+    return formatAmountInUSD(amount);
   };
 
   // Map backend status to frontend status
@@ -178,7 +177,7 @@ const DepositeRequest = () => {
         user: deposit.userId?.name || 'Unknown User',
         userEmail: deposit.userId?.email || '',
         userPhone: deposit.userId?.phone || '',
-        amount: formatAmount(deposit.amount, deposit.currency),
+        amount: formatAmountInUSD(deposit.amount), // Convert INR to USD for display
         date: formatDate(deposit.timestamp),
         method: formatPaymentMethod(deposit.paymentMethod),
         status: mapStatus(deposit.status),

@@ -56,8 +56,8 @@ const UserHeader = ({ toggleMobileSidebar, onNameClick }) => {
 
       {/* Right Section: Search + Theme Toggle + User Info */}
       <div className="flex items-center gap-4">
-        {/* Search Input */}
-        <div className="relative hidden md:block">
+        {/* Search Input - Commented out as per requirements */}
+        {/* <div className="relative hidden md:block">
           <input
             type="text"
             placeholder="Search..."
@@ -67,7 +67,7 @@ const UserHeader = ({ toggleMobileSidebar, onNameClick }) => {
             className="absolute left-3 top-2.5 text-muted-foreground"
             size={18}
           />
-        </div>
+        </div> */}
 
         {/* Theme Toggle */}
         <div className="flex items-center space-x-2">
