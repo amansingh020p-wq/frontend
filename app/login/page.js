@@ -49,7 +49,7 @@ const Login = () => {
       // } else {
       //   setError('Incorrect password');
       // }
-      console.log(`Username is ${username} and password is ${password}`)
+      // SECURITY: Never log passwords or credentials
       const response = await axios.post('user/login', {
         email: username,
         password: password,

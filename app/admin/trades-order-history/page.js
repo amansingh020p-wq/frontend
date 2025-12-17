@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Check, X, Eye, Edit, Loader2 } from 'lucide-react';
 import api from '@/utils/axios'; // Make sure this path is correct
+import { convertUSDToINR, getAmountInUSD } from '@/utils/currency';
 
 const currencyPairs = [
   { value: 'EUR/USD', label: 'EUR/USD – Euro / US Dollar' },
@@ -127,14 +128,18 @@ const TradesOrderHistory = () => {
     
     try {
       setSavingTrade(true);
+      // Convert USD values to INR before sending to backend (backend stores everything in INR)
+      const buyPriceUSD = parseFloat(tradeData.buyPrice);
+      const buyPriceINR = convertUSDToINR(buyPriceUSD);
+      
       const tradePayload = {
         userId: selectedUser,
         symbol: tradeData.symbol,
         tradeType: tradeData.tradeType,
         quantity: parseFloat(tradeData.quantity),
-        buyPrice: parseFloat(tradeData.buyPrice),
-        priceRangeLow: tradeData.priceRangeLow ? parseFloat(tradeData.priceRangeLow) : null,
-        priceRangeHigh: tradeData.priceRangeHigh ? parseFloat(tradeData.priceRangeHigh) : null
+        buyPrice: buyPriceINR,
+        priceRangeLow: tradeData.priceRangeLow ? convertUSDToINR(parseFloat(tradeData.priceRangeLow)) : null,
+        priceRangeHigh: tradeData.priceRangeHigh ? convertUSDToINR(parseFloat(tradeData.priceRangeHigh)) : null
       };
 
       const response = await api.post('/admin/create-trade', tradePayload);
@@ -168,15 +173,21 @@ const TradesOrderHistory = () => {
 
   const handleEditClick = (trade) => {
     setCurrentTrade(trade);
+    // Convert INR values from backend to USD for display in the form
+    const buyPriceUSD = getAmountInUSD(trade.buyPrice);
+    const sellPriceUSD = trade.sellPrice ? getAmountInUSD(trade.sellPrice) : null;
+    const priceRangeLowUSD = trade.priceRange?.low ? getAmountInUSD(trade.priceRange.low) : null;
+    const priceRangeHighUSD = trade.priceRange?.high ? getAmountInUSD(trade.priceRange.high) : null;
+    
     setEditFormData({
       symbol: trade.symbol,
       quantity: trade.quantity.toString(),
-      buyPrice: trade.buyPrice.toString(),
-      sellPrice: trade.sellPrice ? trade.sellPrice.toString() : '',
+      buyPrice: buyPriceUSD.toString(),
+      sellPrice: sellPriceUSD ? sellPriceUSD.toString() : '',
       type: trade.type.toLowerCase(),
       status: trade.status,
-      priceRangeLow: trade.priceRange?.low ? trade.priceRange.low.toString() : '',
-      priceRangeHigh: trade.priceRange?.high ? trade.priceRange.high.toString() : ''
+      priceRangeLow: priceRangeLowUSD ? priceRangeLowUSD.toString() : '',
+      priceRangeHigh: priceRangeHighUSD ? priceRangeHighUSD.toString() : ''
     });
     setShowEditModal(true);
   };
@@ -191,15 +202,20 @@ const TradesOrderHistory = () => {
 
   const handleSaveChanges = async () => {
     try {
+      // Convert USD values from form to INR before sending to backend
+      const buyPriceUSD = parseFloat(editFormData.buyPrice);
+      const buyPriceINR = convertUSDToINR(buyPriceUSD);
+      const sellPriceINR = editFormData.sellPrice ? convertUSDToINR(parseFloat(editFormData.sellPrice)) : null;
+      
       const updatePayload = {
         symbol: editFormData.symbol,
         quantity: parseFloat(editFormData.quantity),
-        buyPrice: parseFloat(editFormData.buyPrice),
-        sellPrice: editFormData.sellPrice ? parseFloat(editFormData.sellPrice) : null,
+        buyPrice: buyPriceINR,
+        sellPrice: sellPriceINR,
         type: editFormData.type.toUpperCase(),
         status: editFormData.status.toUpperCase(),
-        priceRangeLow: editFormData.priceRangeLow ? parseFloat(editFormData.priceRangeLow) : null,
-        priceRangeHigh: editFormData.priceRangeHigh ? parseFloat(editFormData.priceRangeHigh) : null
+        priceRangeLow: editFormData.priceRangeLow ? convertUSDToINR(parseFloat(editFormData.priceRangeLow)) : null,
+        priceRangeHigh: editFormData.priceRangeHigh ? convertUSDToINR(parseFloat(editFormData.priceRangeHigh)) : null
       };
 
       const response = await api.put(`/admin/update-trade/${currentTrade.id}`, updatePayload);
@@ -349,12 +365,14 @@ const TradesOrderHistory = () => {
                         <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">{trade.date}</td>
                         <td className="px-2 py-3 font-medium dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">{trade.symbol}</td>
                         <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">{trade.quantity}</td>
-                        <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">${trade.buyPrice}</td>
-                        <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">{trade.sellPrice ? `$${trade.sellPrice}` : '-'}</td>
+                        <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">${getAmountInUSD(trade.buyPrice).toFixed(2)}</td>
+                        <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">{trade.sellPrice ? `$${getAmountInUSD(trade.sellPrice).toFixed(2)}` : '-'}</td>
                         <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">{trade.type}</td>
                         <td className="px-2 py-3 text-sm font-medium whitespace-nowrap sm:px-4">
-                          <span className={trade.profitLoss.startsWith('+') ? 'text-green-500' : trade.profitLoss.startsWith('-') ? 'text-red-500' : 'text-gray-500'}>
-                            {trade.profitLoss}
+                          <span className={(trade.profitLoss || 0) >= 0 ? 'text-green-500' : 'text-red-500'}>
+                            {(trade.profitLoss || 0) >= 0 
+                              ? `+$${getAmountInUSD(trade.profitLoss || 0).toFixed(2)}` 
+                              : `-$${Math.abs(getAmountInUSD(trade.profitLoss || 0)).toFixed(2)}`}
                           </span>
                         </td>
                         <td className="px-2 py-3 text-sm whitespace-nowrap sm:px-4">

@@ -126,7 +126,8 @@ const WithdrawRequest = () => {
         setStats([
           { title: 'Total Requests', value: (allStat.res.data?.data?.totalWithdrawals || allWithdrawals.length || 0).toString(), icon: Wallet },
           { title: 'Pending', value: (pendingStat.res.data?.data?.totalPending || 0).toString(), icon: TrendingUp },
-          { title: 'Total Amount', value: `$${totalAmount.toLocaleString()}`, icon: Wallet },
+          // totalAmount comes from backend in INR – convert to USD for display
+          { title: 'Total Amount', value: formatAmountInUSD(totalAmount), icon: Wallet },
           { title: 'Completed', value: (completedStat.res.data?.data?.totalCompleted || 0).toString(), icon: CheckCircle },
         ]);
       } catch (err) {

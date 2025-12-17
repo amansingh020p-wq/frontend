@@ -214,6 +214,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import StatusBadge from '../../../components/ui/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import api from '../../../utils/axios'; // Import your axios instance
+import { getAmountInUSD } from '@/utils/currency';
 
 const TradesOrderHistory = () => {
   const [loading, setLoading] = useState(true);
@@ -246,7 +247,41 @@ const TradesOrderHistory = () => {
       // Set metadata
       setHasData(response.data.data.hasData || false);
       setTotalCount(response.data.data.totalCount || 0);
-      setSummaryData(response.data.data.summary || []);
+      
+      // Convert summary data from INR to USD
+      // Backend sends values in INR, but may be formatted as strings with $ signs
+      const rawSummary = response.data.data.summary || [];
+      const convertedSummary = rawSummary.map(item => {
+        if (item.title === 'Total Investment' || item.title === 'Net Profit/Loss') {
+          // Extract numeric value from formatted string (e.g., "$1,350" or "+$1,350.00" -> numeric value in INR)
+          // Remove all non-numeric characters except minus sign and decimal point
+          let numericValue = 0;
+          if (typeof item.value === 'number') {
+            numericValue = item.value;
+          } else if (typeof item.value === 'string') {
+            // Extract numeric value, handling both positive and negative
+            const cleaned = item.value.replace(/[^0-9.-]/g, '');
+            numericValue = parseFloat(cleaned) || 0;
+            // Check if original string started with '-' to preserve sign
+            if (item.value.trim().startsWith('-')) {
+              numericValue = -Math.abs(numericValue);
+            }
+          }
+          
+          // Convert from INR to USD
+          const usdValue = getAmountInUSD(Math.abs(numericValue));
+          const finalValue = numericValue < 0 ? -usdValue : usdValue;
+          
+          return {
+            ...item,
+            value: item.title === 'Net Profit/Loss' 
+              ? (finalValue >= 0 ? `+$${finalValue.toFixed(2)}` : `-$${Math.abs(finalValue).toFixed(2)}`)
+              : `$${finalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          };
+        }
+        return item;
+      });
+      setSummaryData(convertedSummary);
       
       // Handle empty trades array
       if (!response.data.data.trades || response.data.data.trades.length === 0) {
@@ -255,26 +290,34 @@ const TradesOrderHistory = () => {
       }
       
       // Transform backend data to match frontend expectations
-      const transformedTrades = response.data.data.trades.map(trade => ({
-        id: trade._id,
-        date: new Date(trade.tradeDate).toLocaleDateString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric'
-        }),
-        symbol: trade.symbol || 'UNKNOWN',
-        quantity: trade.quantity || 0,
-        buyPrice: trade.buyPrice,
-        sellPrice: trade.sellPrice,
-        type: trade.type ? trade.type.toLowerCase() : 'unknown',
-        profitLoss: trade.profitLoss !== null && trade.profitLoss !== undefined ? 
-          (trade.profitLoss >= 0 ? `+$${Math.abs(trade.profitLoss).toFixed(2)}` : `-$${Math.abs(trade.profitLoss).toFixed(2)}`) 
-          : '$0.00',
-        status: trade.status ? trade.status.toLowerCase() : 'unknown',
-        tradeAmount: trade.tradeAmount || 0,
-        priceRange: trade.priceRange || null,
-        currentPrice: trade.currentPrice || null
-      }));
+      // All monetary values from backend are in INR, convert to USD for display
+      const transformedTrades = response.data.data.trades.map(trade => {
+        // Convert profitLoss from INR to USD
+        const profitLossINR = trade.profitLoss || 0;
+        const profitLossUSD = getAmountInUSD(profitLossINR);
+        const profitLossFormatted = profitLossUSD >= 0 
+          ? `+$${profitLossUSD.toFixed(2)}` 
+          : `-$${Math.abs(profitLossUSD).toFixed(2)}`;
+        
+        return {
+          id: trade._id,
+          date: new Date(trade.tradeDate).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          }),
+          symbol: trade.symbol || 'UNKNOWN',
+          quantity: trade.quantity || 0,
+          buyPrice: trade.buyPrice, // Keep as INR for calculations, convert when displaying
+          sellPrice: trade.sellPrice, // Keep as INR for calculations, convert when displaying
+          type: trade.type ? trade.type.toLowerCase() : 'unknown',
+          profitLoss: profitLossFormatted,
+          status: trade.status ? trade.status.toLowerCase() : 'unknown',
+          tradeAmount: trade.tradeAmount || 0, // Keep as INR for calculations
+          priceRange: trade.priceRange || null,
+          currentPrice: trade.currentPrice || null
+        };
+      });
 
       setTradingHistory(transformedTrades);
       
@@ -586,22 +629,25 @@ const TradesOrderHistory = () => {
                   let shouldShowPriceComparison = false;
 
                   // For open trades, calculate fluctuating P&L
+                  // Values from backend are in INR, convert to USD for display
                   if (isOpen) {
                     const quantity = Number(trade.quantity) || 0;
-                    const buyPricePerUnit = Number(trade.buyPrice) || 0;
-                    const totalBuyAmount = quantity * buyPricePerUnit;
-                    const midValue = totalBuyAmount;
+                    const buyPricePerUnitINR = Number(trade.buyPrice) || 0;
+                    const totalBuyAmountINR = quantity * buyPricePerUnitINR;
+                    const midValueUSD = getAmountInUSD(totalBuyAmountINR); // Convert to USD
 
-                    if (midValue != null && midValue !== undefined) {
-                      const midTotalValue = Number(midValue);
+                    if (midValueUSD != null && midValueUSD !== undefined) {
+                      const midTotalValue = midValueUSD;
                       
                       if (!isNaN(midTotalValue) && isFinite(midTotalValue)) {
                         let currentTotalValue = null;
                         
                         if (trade.id in livePrices && livePrices[trade.id] != null && livePrices[trade.id] !== undefined) {
-                          currentTotalValue = Number(livePrices[trade.id]);
+                          const livePriceINR = Number(livePrices[trade.id]);
+                          currentTotalValue = getAmountInUSD(livePriceINR); // Convert to USD
                         } else if (trade.currentPrice != null && trade.currentPrice !== undefined) {
-                          currentTotalValue = Number(trade.currentPrice);
+                          const currentPriceINR = Number(trade.currentPrice);
+                          currentTotalValue = getAmountInUSD(currentPriceINR); // Convert to USD
                         } else {
                           currentTotalValue = midTotalValue;
                         }
@@ -726,14 +772,17 @@ const TradesOrderHistory = () => {
                       });
                       
                       // Calculate total buy amount = quantity * buyPrice (this is the mid value)
+                      // Values are in INR from backend, need to convert to USD for display
                       const quantity = Number(trade.quantity) || 0;
-                      const buyPricePerUnit = Number(trade.buyPrice) || 0;
-                      const totalBuyAmount = quantity * buyPricePerUnit;
+                      const buyPricePerUnitINR = Number(trade.buyPrice) || 0;
+                      const totalBuyAmountINR = quantity * buyPricePerUnitINR;
+                      const totalBuyAmount = getAmountInUSD(totalBuyAmountINR); // Convert to USD
                       
                       console.log(`[DEBUG] Calculated values:`, {
                         quantity,
-                        buyPricePerUnit,
-                        calculatedTotalBuyAmount: totalBuyAmount
+                        buyPricePerUnitINR,
+                        totalBuyAmountINR,
+                        calculatedTotalBuyAmountUSD: totalBuyAmount
                       });
                       
                       // ALWAYS use calculated totalBuyAmount (quantity * buyPrice) as mid value
@@ -743,13 +792,14 @@ const TradesOrderHistory = () => {
                       
                       console.log(`[DEBUG] Mid value:`, {
                         priceRangeMid: trade.priceRange?.mid,
-                        calculatedTotalBuyAmount: totalBuyAmount,
+                        calculatedTotalBuyAmountINR: totalBuyAmountINR,
+                        calculatedTotalBuyAmountUSD: totalBuyAmount,
                         finalMidValue: midValue,
-                        note: 'Using calculated totalBuyAmount, NOT priceRange.mid'
+                        note: 'Using calculated totalBuyAmount converted to USD, NOT priceRange.mid'
                       });
                       
                       if (midValue != null && midValue !== undefined) {
-                        const midTotalValue = Number(midValue);
+                        const midTotalValue = midValue; // Already converted to USD
                         
                         console.log(`[DEBUG] Mid total value (Number):`, midTotalValue);
                         console.log(`[DEBUG] Is valid number?`, !isNaN(midTotalValue) && isFinite(midTotalValue));
@@ -757,18 +807,21 @@ const TradesOrderHistory = () => {
                         if (!isNaN(midTotalValue) && isFinite(midTotalValue)) {
                           // Get current total value - the live price is already the total value (generated between low and high range)
                           // Prefer live price, then currentPrice from trade, fallback to midValue
+                          // All values from backend are in INR, convert to USD for display
                           let currentTotalValue = null;
                           let priceSource = 'none';
                           
                           // Check if livePrice exists in the livePrices object (this is already total value, not per unit)
                           if (trade.id in livePrices && livePrices[trade.id] != null && livePrices[trade.id] !== undefined) {
-                            currentTotalValue = Number(livePrices[trade.id]);
+                            const livePriceINR = Number(livePrices[trade.id]);
+                            currentTotalValue = getAmountInUSD(livePriceINR); // Convert to USD
                             priceSource = 'livePrices';
                           } else if (trade.currentPrice != null && trade.currentPrice !== undefined) {
-                            currentTotalValue = Number(trade.currentPrice);
+                            const currentPriceINR = Number(trade.currentPrice);
+                            currentTotalValue = getAmountInUSD(currentPriceINR); // Convert to USD
                             priceSource = 'trade.currentPrice';
                           } else {
-                            // If no current price available yet, use midValue (neutral state)
+                            // If no current price available yet, use midValue (already converted to USD)
                             currentTotalValue = midTotalValue;
                             priceSource = 'midValue (fallback)';
                           }

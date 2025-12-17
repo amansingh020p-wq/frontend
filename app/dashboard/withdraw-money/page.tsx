@@ -114,8 +114,16 @@ const WithdrawPage: React.FC = () => {
         console.log('📋 Raw API Response:', detailsRes);
         console.log('📊 Response Data:', detailsRes.data);
         
-        details = detailsRes.data.data;
-        console.log('💰 Extracted Details:', details);
+        // Values from backend are in INR, convert to USD
+        const rawDetails = detailsRes.data.data;
+        details = {
+          accountBalance: getAmountInUSD(rawDetails.accountBalance || 0),
+          totalWithdrawals: getAmountInUSD(rawDetails.totalWithdrawals || 0),
+          orderInvestment: getAmountInUSD(rawDetails.orderInvestment || 0),
+          totalDeposit: getAmountInUSD(rawDetails.totalDeposit || 0),
+          profitLoss: getAmountInUSD(rawDetails.profitLoss || 0)
+        };
+        console.log('💰 Extracted Details (converted to USD):', details);
         
       } catch (error: any) {
         console.error('❌ Primary endpoint failed:', error);
@@ -134,14 +142,15 @@ const WithdrawPage: React.FC = () => {
             const dashboardRes = await api.get('/dashboard/user');
             const dashboardData = dashboardRes.data;
             
+            // Values from backend are in INR, convert to USD
             details = {
-              accountBalance: dashboardData.accountBalance || 0,
-              totalWithdrawals: dashboardData.totalWithdrawals || 0,
-              orderInvestment: dashboardData.orderInvestment || 0,
-              totalDeposit: dashboardData.totalDeposit || 0,
-              profitLoss: dashboardData.profitLoss || 0
+              accountBalance: getAmountInUSD(dashboardData.accountBalance || 0),
+              totalWithdrawals: getAmountInUSD(dashboardData.totalWithdrawals || 0),
+              orderInvestment: getAmountInUSD(dashboardData.orderInvestment || 0),
+              totalDeposit: getAmountInUSD(dashboardData.totalDeposit || 0),
+              profitLoss: getAmountInUSD(dashboardData.profitLoss || 0)
             };
-            console.log('💰 Got data from dashboard:', details);
+            console.log('💰 Got data from dashboard (converted to USD):', details);
           } catch (dashboardError) {
             console.error('❌ Dashboard endpoint also failed:', dashboardError);
             // Set truly empty state - let user know there's no data
