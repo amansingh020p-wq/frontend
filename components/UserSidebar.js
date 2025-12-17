@@ -77,6 +77,7 @@ const AdminSidebar = ({ mobileSidebarOpen, onCloseMobileSidebar }) => {
     { title: 'Transactions', icon: ArrowDownUp , path: '/dashboard/transactions' },
     { title: 'Deposit Money', icon: CreditCard, path: '/dashboard/deposit-money' },
     { title: 'Withdraw Money', icon: Wallet, path: '/dashboard/withdraw-money' },
+    { title: 'Portfolio', icon: TrendingUp, path: '/dashboard/portfolio' },
     // { title: 'Buy Trades', icon: ChartCandlestick, path: '/dashboard/buy-trades' },
     // { title: 'Sell Trades', icon: DollarSign, path: '/dashboard/sell-trades' },
     { title: 'Trade Order History', icon: History, path: '/dashboard/trades-order-history' },

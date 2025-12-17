@@ -6,6 +6,7 @@ import { Users, CreditCard, UserCheck, FileCheck, ArrowLeft } from 'lucide-react
 import StatusBadge from '../../../../components/ui/StatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
 import api from '../../../../utils/axios';
+import { getAmountInUSD, formatAmountInUSD } from '@/utils/currency';
 
 const UserProfile = () => {
   const params = useParams();
@@ -93,10 +94,14 @@ const UserProfile = () => {
                 : (transactionsResponse.data.data || []);
               console.log('Transactions data:', transactionsData);
               
-              const userTransactions = transactionsData.map(t => ({
+              const userTransactions = transactionsData.map(t => {
+                const amountInr = Number(t.amount || 0);
+                const amountFormatted = formatAmountInUSD(amountInr);
+
+                return {
                 id: t._id?.toString() || t.transactionId || 'N/A',
                 type: t.type || 'Unknown',
-                amount: `$${(t.amount || 0).toLocaleString()}`,
+                amount: amountFormatted,
                 date: t.timestamp 
                   ? new Date(t.timestamp).toLocaleDateString('en-US', { 
                       year: 'numeric', 
@@ -111,7 +116,7 @@ const UserProfile = () => {
                     })
                   : 'N/A',
                 status: (t.status || 'pending').toLowerCase()
-              }));
+              }});
               
               console.log('Formatted transactions:', userTransactions);
               setTransactions(userTransactions);
@@ -138,8 +143,8 @@ const UserProfile = () => {
                 id: t.id || t._id || 'N/A',
                 symbol: t.symbol || 'N/A',
                 quantity: t.quantity || 0,
-                buyPrice: t.buyPrice || 0,
-                sellPrice: t.sellPrice || 0,
+                buyPrice: getAmountInUSD(t.buyPrice || 0).toFixed(2),
+                sellPrice: t.sellPrice ? getAmountInUSD(t.sellPrice).toFixed(2) : '0.00',
                 date: t.date 
                   ? new Date(t.date).toLocaleDateString('en-US', { 
                       year: 'numeric', 
@@ -153,7 +158,8 @@ const UserProfile = () => {
                       day: '2-digit' 
                     })
                   : 'N/A',
-                profitLoss: t.profitLoss || '$0'
+                // profitLoss is in INR – convert to USD number here
+                profitLoss: getAmountInUSD(t.profitLoss || 0)
               }));
               setTrades(userTrades);
             }
@@ -500,13 +506,25 @@ const UserProfile = () => {
                           <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">{trade.id}</td>
                           <td className="px-2 py-3 font-medium dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">{trade.symbol}</td>
                           <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">{trade.quantity}</td>
-                          <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">${trade.buyPrice}</td>
-                          <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">${trade.sellPrice}</td>
+                          <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">
+                            ${Number(trade.buyPrice).toFixed(2)}
+                          </td>
+                          <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">
+                            ${Number(trade.sellPrice).toFixed(2)}
+                          </td>
                           <td className="px-2 py-3 text-sm dark:text-[#F2F2F2] whitespace-nowrap sm:px-4">{trade.date}</td>
                           <td className="px-2 py-3 text-sm font-medium whitespace-nowrap sm:px-4">
-                            <span className={trade.profitLoss.startsWith('+') ? 'text-green-500' : 'text-red-500'}>
-                              {trade.profitLoss}
-                            </span>
+                            {(() => {
+                              const plNumber = Number(trade.profitLoss || 0);
+                              const isProfit = plNumber >= 0;
+                              const formatted =
+                                (isProfit ? '+$' : '-$') + Math.abs(plNumber).toFixed(2);
+                              return (
+                                <span className={isProfit ? 'text-green-500' : 'text-red-500'}>
+                                  {formatted}
+                                </span>
+                              );
+                            })()}
                           </td>
                         </tr>
                       ))

@@ -18,6 +18,7 @@ const DepositeRequest = () => {
   const [toasts, setToasts] = useState([]);
   const [showUserDetails, setShowUserDetails] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [actionLoading, setActionLoading] = useState({});
 
   // Toast notification component
   const Toast = ({ id, type, message }) => {
@@ -191,8 +192,29 @@ const DepositeRequest = () => {
   };
 
   const handleDepositAction = async (depositId, action) => {
-    if (action === 'accept') {
-      try {
+    if (action === 'view') {
+      const deposit = verifiedDeposits.find(d => d.id === depositId) || pendingDeposits.find(d => d.id === depositId);
+      if (deposit) {
+        if (!deposit.userId) {
+          console.error('Deposit found but userId is missing:', deposit);
+          addToast('error', 'User ID not found in deposit data');
+          return;
+        }
+        handleViewAction(deposit);
+      } else {
+        console.error('Deposit not found with id:', depositId);
+        console.error('Available verified deposits:', verifiedDeposits.map(d => d.id));
+        console.error('Available pending deposits:', pendingDeposits.map(d => d.id));
+        addToast('error', 'Deposit not found');
+      }
+      return;
+    }
+
+    // For accept / reject, prevent multiple clicks while request is in-flight
+    setActionLoading(prev => ({ ...prev, [depositId]: true }));
+
+    try {
+      if (action === 'accept') {
         await approveDepositAPI(depositId);
         
         // Find the deposit to move
@@ -208,36 +230,18 @@ const DepositeRequest = () => {
           
           addToast('success', 'Deposit request accepted successfully!');
         }
-      } catch (error) {
-        const errorMessage = error.response?.data?.message || 'Failed to accept deposit request';
-        addToast('error', errorMessage);
-      }
-    } else if (action === 'reject') {
-      try {
+      } else if (action === 'reject') {
         await rejectDepositAPI(depositId);
         
         // Remove from pending deposits
         setPendingDeposits(prev => prev.filter(d => d.id !== depositId));
         addToast('error', 'Deposit request rejected successfully!');
-      } catch (error) {
-        const errorMessage = error.response?.data?.message || 'Failed to reject deposit request';
-        addToast('error', errorMessage);
       }
-    } else if (action === 'view') {
-      const deposit = verifiedDeposits.find(d => d.id === depositId) || pendingDeposits.find(d => d.id === depositId);
-      if (deposit) {
-        if (!deposit.userId) {
-          console.error('Deposit found but userId is missing:', deposit);
-          addToast('error', 'User ID not found in deposit data');
-          return;
-        }
-        handleViewAction(deposit);
-      } else {
-        console.error('Deposit not found with id:', depositId);
-        console.error('Available verified deposits:', verifiedDeposits.map(d => d.id));
-        console.error('Available pending deposits:', pendingDeposits.map(d => d.id));
-        addToast('error', 'Deposit not found');
-      }
+    } catch (error) {
+      const errorMessage = error.response?.data?.message || `Failed to ${action} deposit request`;
+      addToast('error', errorMessage);
+    } finally {
+      setActionLoading(prev => ({ ...prev, [depositId]: false }));
     }
   };
 
@@ -440,10 +444,14 @@ const DepositeRequest = () => {
                               <ActionButton 
                                 type="accept" 
                                 onClick={() => handleDepositAction(deposit.id, 'accept')} 
+                                disabled={!!actionLoading[deposit.id]}
+                                loading={!!actionLoading[deposit.id]}
                               />
                               <ActionButton 
                                 type="reject" 
                                 onClick={() => handleDepositAction(deposit.id, 'reject')} 
+                                disabled={!!actionLoading[deposit.id]}
+                                loading={!!actionLoading[deposit.id]}
                               />
                             </div>
                           </td>

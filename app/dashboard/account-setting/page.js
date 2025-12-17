@@ -13,6 +13,12 @@ import api from '../../../utils/axios'; // Adjust the import path as necessary
 const AccountSetting = () => {
   const [activeTab, setActiveTab] = useState("profile");
   const [isEditing, setIsEditing] = useState(false);
+  const [isPasswordUpdating, setIsPasswordUpdating] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    current: '',
+    next: '',
+    confirm: ''
+  });
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
 
@@ -437,28 +443,72 @@ const AccountSetting = () => {
                 </div>
                 <div className="pt-2">
                   <h4 className="font-medium">Password</h4>
-                  <div className="mt-2 space-y-4">
-                    {isEditing ? (
-                      <>
-                        <div className="space-y-2">
-                          <Label htmlFor="current-password">Current Password</Label>
-                          <Input id="current-password" type="password" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="new-password">New Password</Label>
-                          <Input id="new-password" type="password" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="confirm-password">Confirm New Password</Label>
-                          <Input id="confirm-password" type="password" />
-                        </div>
-                        <Button>Update Password</Button>
-                      </>
-                    ) : (
-                      <Button variant="outline" onClick={() => setIsEditing(true)}>
-                        Change Password
-                      </Button>
-                    )}
+                  <div className="mt-2 space-y-4 max-w-md">
+                    <div className="space-y-2">
+                      <Label htmlFor="current-password">Current Password</Label>
+                      <Input
+                        id="current-password"
+                        type="password"
+                        value={passwordForm.current}
+                        onChange={(e) =>
+                          setPasswordForm((prev) => ({ ...prev, current: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="new-password">New Password</Label>
+                      <Input
+                        id="new-password"
+                        type="password"
+                        value={passwordForm.next}
+                        onChange={(e) =>
+                          setPasswordForm((prev) => ({ ...prev, next: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirm-password">Confirm New Password</Label>
+                      <Input
+                        id="confirm-password"
+                        type="password"
+                        value={passwordForm.confirm}
+                        onChange={(e) =>
+                          setPasswordForm((prev) => ({ ...prev, confirm: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <Button
+                      disabled={isPasswordUpdating}
+                      onClick={async () => {
+                        if (!passwordForm.current || !passwordForm.next || !passwordForm.confirm) {
+                          alert('Please fill all password fields');
+                          return;
+                        }
+                        if (passwordForm.next !== passwordForm.confirm) {
+                          alert('New password and confirmation do not match');
+                          return;
+                        }
+                        try {
+                          setIsPasswordUpdating(true);
+                          await api.post('/user/change-password', {
+                            oldPassword: passwordForm.current,
+                            newPassword: passwordForm.next,
+                          });
+                          alert('Password updated successfully');
+                          setPasswordForm({ current: '', next: '', confirm: '' });
+                        } catch (err) {
+                          alert(
+                            err.response?.data?.message ||
+                              err.message ||
+                              'Failed to update password'
+                          );
+                        } finally {
+                          setIsPasswordUpdating(false);
+                        }
+                      }}
+                    >
+                      {isPasswordUpdating ? 'Updating...' : 'Update Password'}
+                    </Button>
                   </div>
                 </div>
               </div>

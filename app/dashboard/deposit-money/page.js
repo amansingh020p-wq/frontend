@@ -155,26 +155,31 @@ const UserDepositPage = () => {
   };
 
   const submitDepositRequest = async () => {
-  try {
-    // const token = localStorage.getItem('token'); // Or get it from auth context
+    // Prevent multiple clicks while a request is in flight
+    if (isLoading) return;
 
-    if (!upiDetails.upiId) {
-      alert('Payment is unavailable right now. Please try again later.');
-      return;
+    try {
+      if (!upiDetails.upiId) {
+        alert('Payment is unavailable right now. Please try again later.');
+        return;
+      }
+
+      setIsLoading(true);
+
+      const res = await fetch.post('/user/deposit', {
+        amount,
+        paymentMethod: "UPI", // or "bank" based on selected method
+        upiId: upiDetails.upiId, // Only if UPI
+      });
+      console.log("Deposit response:", res.data);
+
+      setShowSuccessDialog(true);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Deposit failed');
+    } finally {
+      setIsLoading(false);
     }
-
-    const res = await fetch.post('/user/deposit', {
-      amount,
-      paymentMethod: "UPI", // or "bank" based on selected method
-      upiId: upiDetails.upiId, // Only if UPI
-    });
-    console.log("Deposit response:", res.data);
-
-    setShowSuccessDialog(true);
-  } catch (err) {
-    alert(err.response?.data?.message || 'Deposit failed');
-  }
-};
+  };
 
   const handleMethodSelect = (method) => {
     setSelectedMethod(method);
@@ -349,8 +354,16 @@ const UserDepositPage = () => {
                           variant="outline"
                           className="w-full dark:border-[#2A3F3A] dark:text-white dark:hover:bg-[#1A2E24]"
                           onClick={submitDepositRequest}
+                          disabled={isLoading}
                         >
-                          I've Completed Payment
+                          {isLoading ? (
+                            <>
+                              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                              Submitting...
+                            </>
+                          ) : (
+                            "I've Completed Payment"
+                          )}
                         </Button>
                       </div>
                     </div>
@@ -415,8 +428,16 @@ const UserDepositPage = () => {
                     <Button 
                       className="w-full"
                       onClick={submitDepositRequest}
+                      disabled={isLoading}
                     >
-                      I've Completed Transfer
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        "I've Completed Transfer"
+                      )}
                     </Button>
                   </div>
                 )

@@ -68,9 +68,11 @@ interface ActionButtonProps {
   type: ActionType;
   onClick: () => void;
   className?: string;
+  disabled?: boolean;
+  loading?: boolean;
 }
 
-const ActionButton = ({ type, onClick, className }: ActionButtonProps) => {
+const ActionButton = ({ type, onClick, className, disabled = false, loading = false }: ActionButtonProps) => {
   const iconMap = {
     view: <Eye size={16} />,
     edit: <Edit size={16} />,
@@ -90,13 +92,18 @@ const ActionButton = ({ type, onClick, className }: ActionButtonProps) => {
   return (
     <button
       onClick={onClick}
+      disabled={disabled || loading}
       className={cn(
-        'p-1.5 rounded transition-colors',
+        'p-1.5 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
         classMap[type],
         className
       )}
     >
-      {iconMap[type]}
+      {loading ? (
+        <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+      ) : (
+        iconMap[type]
+      )}
     </button>
   );
 };
