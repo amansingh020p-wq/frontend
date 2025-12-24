@@ -242,12 +242,14 @@ const WithdrawPage: React.FC = () => {
   const handleWithdraw = async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     
-    if (!amount || parseFloat(amount) < 100) {
-      alert('Please enter a valid amount (minimum $100)');
+    const numericAmount = parseFloat(amount);
+
+    if (!amount || Number.isNaN(numericAmount) || numericAmount <= 0) {
+      alert('Please enter a valid amount greater than $0');
       return;
     }
 
-    if (parseFloat(amount) > (withdrawalDetails.accountBalance || 0)) {
+    if (numericAmount > (withdrawalDetails.accountBalance || 0)) {
       alert('Insufficient balance for withdrawal');
       return;
     }
@@ -256,7 +258,7 @@ const WithdrawPage: React.FC = () => {
     
     try {
       // User enters amount in USD, convert to INR for backend
-      const amountUSD = parseFloat(amount);
+      const amountUSD = numericAmount;
       const amountINR = convertUSDToINR(amountUSD);
       
       const response = await api.post('/user/withdraw', {
@@ -380,14 +382,11 @@ const WithdrawPage: React.FC = () => {
                     className="w-full px-3 py-2 text-sm rounded-md border dark:border-[#2A3F3A] bg-background dark:bg-[#142924] dark:text-[#F2F2F2] focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="Enter amount"
                     required
-                    min="100"
+                    min="0"
                     max={withdrawalDetails.accountBalance || 0}
-                    disabled={isSubmitting || (withdrawalDetails.accountBalance || 0) < 100}
+                    disabled={isSubmitting || (withdrawalDetails.accountBalance || 0) <= 0}
                     step="0.01"
                   />
-                  <p className="mt-1 text-xs text-muted-foreground dark:text-[#ABBAB6]">
-                    Minimum withdrawal: $100 | Available: ${Number(withdrawalDetails.accountBalance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </p>
                 </div>
 
                 <div className="pt-2">
@@ -396,14 +395,15 @@ const WithdrawPage: React.FC = () => {
                     disabled={
                       isSubmitting || 
                       !amount || 
-                      parseFloat(amount) < 100 || 
+                      Number.isNaN(parseFloat(amount)) ||
+                      parseFloat(amount) <= 0 || 
                       parseFloat(amount) > (withdrawalDetails.accountBalance || 0) ||
-                      (withdrawalDetails.accountBalance || 0) < 100
+                      (withdrawalDetails.accountBalance || 0) <= 0
                     }
                     className="px-4 py-2 text-sm sm:text-base bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? 'Processing...' : 
-                     (withdrawalDetails.accountBalance || 0) < 100 ? 'Insufficient Balance' : 
+                     (withdrawalDetails.accountBalance || 0) <= 0 ? 'Insufficient Balance' : 
                      'Confirm Withdraw'}
                   </button>
                 </div>
@@ -435,49 +435,94 @@ const WithdrawPage: React.FC = () => {
             Your withdrawal history
           </p>
         </div>
-        <div className="p-2 sm:p-4 overflow-x-auto">
-          <table className="w-full min-w-[600px]">
-            <thead>
-              <tr className="border-b dark:border-[#2A3F3A]">
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium text-muted-foreground dark:text-[#ABBAB6]">Date</th>
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium text-muted-foreground dark:text-[#ABBAB6]">Amount</th>
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium text-muted-foreground dark:text-[#ABBAB6]">Method</th>
-                <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium text-muted-foreground dark:text-[#ABBAB6]">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                Array.from({ length: 5 }).map((_, index) => (
-                  <tr key={`loading-${index}`} className="border-b dark:border-[#2A3F3A]">
-                    <td className="px-3 py-2"><Skeleton className="h-4 w-[80px]" /></td>
-                    <td className="px-3 py-2"><Skeleton className="h-4 w-[70px]" /></td>
-                    <td className="px-3 py-2"><Skeleton className="h-4 w-[100px]" /></td>
-                    <td className="px-3 py-2"><Skeleton className="h-6 w-[70px] rounded-full" /></td>
-                  </tr>
-                ))
-              ) : withdrawals.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-3 py-6 text-center text-gray-500 dark:text-[#ABBAB6]">
-                    No withdrawal history found
-                  </td>
+        <div className="p-2 sm:p-4">
+          {/* Mobile: stacked cards to avoid horizontal scroll */}
+          <div className="sm:hidden space-y-3">
+            {loading ? (
+              Array.from({ length: 5 }).map((_, index) => (
+                <div key={`loading-card-${index}`} className="rounded-lg border dark:border-[#2A3F3A] p-3 space-y-2">
+                  <Skeleton className="h-4 w-[120px]" />
+                  <Skeleton className="h-4 w-[80px]" />
+                  <Skeleton className="h-4 w-[100px]" />
+                  <Skeleton className="h-6 w-[80px] rounded-full" />
+                </div>
+              ))
+            ) : withdrawals.length === 0 ? (
+              <div className="px-3 py-6 text-center text-gray-500 dark:text-[#ABBAB6]">
+                No withdrawal history found
+              </div>
+            ) : (
+              withdrawals.map((withdrawal) => (
+                <div key={withdrawal.id} className="rounded-lg border dark:border-[#2A3F3A] p-3 space-y-1">
+                  <div className="flex justify-between text-xs text-muted-foreground dark:text-[#ABBAB6]">
+                    <span>Date</span>
+                    <span className="dark:text-[#F2F2F2]">{withdrawal.date}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground dark:text-[#ABBAB6]">
+                    <span>Amount</span>
+                    <span className="font-medium text-red-500">{withdrawal.amount}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground dark:text-[#ABBAB6]">
+                    <span>Method</span>
+                    <span className="dark:text-[#F2F2F2]">{withdrawal.bank}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-muted-foreground dark:text-[#ABBAB6]">
+                    <span>Status</span>
+                    <StatusBadge 
+                      status={withdrawal.status as StatusType}
+                      className="text-xs"
+                    />
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Desktop / tablet: keep table layout */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b dark:border-[#2A3F3A]">
+                  <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium text-muted-foreground dark:text-[#ABBAB6]">Date</th>
+                  <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium text-muted-foreground dark:text-[#ABBAB6]">Amount</th>
+                  <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium text-muted-foreground dark:text-[#ABBAB6]">Method</th>
+                  <th className="px-3 py-2 text-left text-xs sm:text-sm font-medium text-muted-foreground dark:text-[#ABBAB6]">Status</th>
                 </tr>
-              ) : (
-                withdrawals.map((withdrawal) => (
-                  <tr key={withdrawal.id} className="border-b dark:border-[#2A3F3A] hover:bg-muted/50">
-                    <td className="px-3 py-2 text-xs sm:text-sm dark:text-[#F2F2F2]">{withdrawal.date}</td>
-                    <td className="px-3 py-2 text-xs sm:text-sm font-medium text-red-500">{withdrawal.amount}</td>
-                    <td className="px-3 py-2 text-xs sm:text-sm dark:text-[#F2F2F2]">{withdrawal.bank}</td>
-                    <td className="px-3 py-2">
-                      <StatusBadge 
-                        status={withdrawal.status as StatusType}
-                        className="text-xs sm:text-sm"
-                      />
+              </thead>
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 5 }).map((_, index) => (
+                    <tr key={`loading-${index}`} className="border-b dark:border-[#2A3F3A]">
+                      <td className="px-3 py-2"><Skeleton className="h-4 w-[80px]" /></td>
+                      <td className="px-3 py-2"><Skeleton className="h-4 w-[70px]" /></td>
+                      <td className="px-3 py-2"><Skeleton className="h-4 w-[100px]" /></td>
+                      <td className="px-3 py-2"><Skeleton className="h-6 w-[70px] rounded-full" /></td>
+                    </tr>
+                  ))
+                ) : withdrawals.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-6 text-center text-gray-500 dark:text-[#ABBAB6]">
+                      No withdrawal history found
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  withdrawals.map((withdrawal) => (
+                    <tr key={withdrawal.id} className="border-b dark:border-[#2A3F3A] hover:bg-muted/50">
+                      <td className="px-3 py-2 text-xs sm:text-sm dark:text-[#F2F2F2]">{withdrawal.date}</td>
+                      <td className="px-3 py-2 text-xs sm:text-sm font-medium text-red-500">{withdrawal.amount}</td>
+                      <td className="px-3 py-2 text-xs sm:text-sm dark:text-[#F2F2F2]">{withdrawal.bank}</td>
+                      <td className="px-3 py-2">
+                        <StatusBadge 
+                          status={withdrawal.status as StatusType}
+                          className="text-xs sm:text-sm"
+                        />
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>

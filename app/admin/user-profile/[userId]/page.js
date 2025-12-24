@@ -61,7 +61,7 @@ const UserProfile = () => {
             bank: {
               name: userData.bankName || 'Not provided',
               accountHolder: userData.accountHolder || 'Not provided',
-              accountNumber: userData.accountNumber ? `****${userData.accountNumber.slice(-4)}` : 'Not provided',
+              accountNumber: userData.accountNumber || 'Not provided',
               ifsc: userData.ifscCode || 'Not provided',
               branch: userData.address || 'Not provided'
             },

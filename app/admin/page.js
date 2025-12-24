@@ -462,33 +462,38 @@ const dashboardApi = {
   // Accept/Reject withdrawal using the same routes as WithdrawRequest
   approveWithdrawal: async (withdrawalId) => {
     try {
-      const response = await api.post(`/admin/approve-withdrawal`, { id: withdrawalId });
+      const response = await api.post(`/admin/approve-withdrawal/${withdrawalId}`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to approve withdrawal');
     }
   },
 
-  // Reject withdrawal using the same routes as WithdrawRequest
   rejectWithdrawal: async (withdrawalId) => {
     try {
-      const response = await api.post(`/admin/reject-withdrawal`, { id: withdrawalId });
+      const response = await api.post(`/admin/reject-withdrawal/${withdrawalId}`);
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.message || 'Failed to reject withdrawal');
     }
   },
 
-  // Accept/Reject deposit
-  updateDepositStatus: async (transactionId, status, reason = '') => {
+  // Accept/Reject deposit using the same routes as DepositRequest
+  approveDeposit: async (depositId) => {
     try {
-      const response = await api.patch(`/admin/transactions/${transactionId}/status`, {
-        status: status.toUpperCase(),
-        reason
-      });
+      const response = await api.patch(`/admin/approve-deposit/${depositId}`);
       return response.data;
     } catch (error) {
-      throw new Error(error.response?.data?.message || 'Failed to update deposit status');
+      throw new Error(error.response?.data?.message || 'Failed to approve deposit');
+    }
+  },
+
+  rejectDeposit: async (depositId) => {
+    try {
+      const response = await api.patch(`/admin/reject-deposit/${depositId}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.message || 'Failed to reject deposit');
     }
   },
 
@@ -773,12 +778,15 @@ const Dashboard = () => {
     try {
       setActionLoading(prev => ({ ...prev, [id]: true }));
       
-      const status = action === 'accept' ? 'COMPLETED' : 'REJECTED';
-      await dashboardApi.updateDepositStatus(id, status);
+      if (action === 'accept') {
+        await dashboardApi.approveDeposit(id);
+      } else {
+        await dashboardApi.rejectDeposit(id);
+      }
       
       // Update local state
       setRecentDeposits(prev =>
-        prev.map(d => d.id === id ? { ...d, status: status.toLowerCase() } : d)
+        prev.map(d => d.id === id ? { ...d, status: action === 'accept' ? 'completed' : 'rejected' } : d)
       );
       
       const message = action === 'accept' 

@@ -36,7 +36,7 @@ const UserProfile = () => {
         bank: {
           name: 'Chase',
           accountHolder: 'John Smith',
-          accountNumber: '****1234',
+          accountNumber: '1234567890',
           ifsc: 'CHAS0012345',
           branch: 'New York City, NY'
         },
